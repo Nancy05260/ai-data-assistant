@@ -7,7 +7,7 @@ class Settings(BaseSettings):
 
     # DeepSeek
     deepseek_api_key: str = ""
-    deepseek_base_url: str = "https://api.deepseek.com"
+    deepseek_base_url: str = "https://api.deepseek.com/v1"
 
     # 数据库
     app_db_path: str = "./app.db"

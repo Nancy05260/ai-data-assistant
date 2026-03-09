@@ -18,6 +18,10 @@ node_modules/
 .env.local
 .env.*.local
 
+# 测试脚本含 API Key 或本地路径，勿提交
+backend/test_deepseek.py
+backend/test_nl2sql.py
+
 # Database
 *.db
 *.sqlite3

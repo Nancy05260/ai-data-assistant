@@ -20,7 +20,7 @@
 
 ```env
 DEEPSEEK_API_KEY=sk-xxx          # DeepSeek API 密钥 (必填)
-DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_BASE_URL=https://api.deepseek.com/v1  # 需带 /v1
 APP_DB_PATH=./app.db
 BIZ_DB_PATH=./data/business.db
 LLM_TIMEOUT=30
@@ -46,6 +46,17 @@ data-analyst/
 | P2 | 前端 UI（Sidebar / ChatPanel / ChartPanel）|
 | P3 | 后端接口（NL2SQL、图表生成、SSE、会话管理）|
 | P4 | 前后端联调 & 端到端测试 |
+
+## Phase 3 开发规范（LLM 与 SSE）
+
+- **LLM**：`model=deepseek-chat`，`base_url=https://api.deepseek.com/v1`（LangChain 用 `ChatOpenAI` 兼容接口）。
+- **AIMessage**：`content`、`response_metadata`（含 `finish_reason`、`token_usage`）、`tool_calls`（每项含 `name`、`args`、`id`、`type: "tool_call"`）。
+- **流式**：AIMessageChunk 需累积 `content`；可有 `tool_call_chunks`。
+- **SSE 事件**：`thinking` | `sql` | `answer` | `chart` | `error` | `done`，payload 结构见仓库内 Plan 文件「Phase 3 开发规范」章节。
+
+完整字段与示例见项目 Plan：`.cursor/plans/` 下对应 `.plan.md`。
+
+**接口规范**：REST（会话 CRUD、健康检查）、POST /api/chat 请求体与 SSE 事件约定、图表 chart 格式等见 Plan 内「接口规范汇总」小节。
 
 ## 快速开始
 
