@@ -1,31 +1,46 @@
 import { FiPlus, FiMessageSquare, FiTrash2 } from 'react-icons/fi'
 
-const MOCK_CONVERSATIONS = [
-  { id: '1', title: '各品类销售额对比', updatedAt: '2026-03-08 14:30' },
-  { id: '2', title: '城市客户分布分析', updatedAt: '2026-03-08 13:15' },
-  { id: '3', title: '月度订单趋势', updatedAt: '2026-03-08 12:00' },
-  { id: '4', title: '新会话', updatedAt: '2026-03-08 11:45' },
-]
+/** 后端返回字段：id, title, created_at, updated_at (ISO 字符串) */
+function formatUpdatedAt(updated_at) {
+  if (!updated_at) return ''
+  try {
+    const d = new Date(updated_at)
+    return d.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+  } catch {
+    return updated_at
+  }
+}
 
 export default function Sidebar({
-  conversations = MOCK_CONVERSATIONS,
+  conversations = [],
   activeId,
   onSelect,
   onNew,
   onDelete,
   hoverId,
   onHover,
+  loading = false,
+  error = null,
 }) {
   return (
     <div className="flex flex-col h-full bg-slate-800 text-slate-100 w-[250px] shrink-0">
+      {error && (
+        <div className="mx-3 mt-2 px-3 py-2 rounded bg-red-900/50 text-red-200 text-xs">
+          {error}
+        </div>
+      )}
       <button
         onClick={onNew}
+        disabled={loading}
         className="flex items-center gap-2 m-3 px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium transition-colors"
       >
         <FiPlus className="w-5 h-5" />
         新建会话
       </button>
       <div className="flex-1 overflow-y-auto px-2">
+        {loading && conversations.length === 0 && (
+          <p className="px-3 py-2 text-slate-400 text-sm">加载中...</p>
+        )}
         {conversations.map((c) => (
           <div
             key={c.id}
@@ -39,7 +54,7 @@ export default function Sidebar({
             <FiMessageSquare className="w-4 h-4 shrink-0 text-slate-400" />
             <div className="flex-1 min-w-0">
               <p className="text-sm truncate">{c.title}</p>
-              <p className="text-xs text-slate-500">{c.updatedAt}</p>
+              <p className="text-xs text-slate-500">{formatUpdatedAt(c.updated_at)}</p>
             </div>
             {hoverId === c.id && (
               <button

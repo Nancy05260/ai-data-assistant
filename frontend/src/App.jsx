@@ -1,43 +1,85 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Sidebar from './components/Sidebar'
 import ChatPanel from './components/ChatPanel'
 import ChartPanel from './components/ChartPanel'
-
-const INITIAL_CONVERSATIONS = [
-  { id: '1', title: '各品类销售额对比', updatedAt: '2026-03-08 14:30' },
-  { id: '2', title: '城市客户分布分析', updatedAt: '2026-03-08 13:15' },
-  { id: '3', title: '月度订单趋势', updatedAt: '2026-03-08 12:00' },
-  { id: '4', title: '新会话', updatedAt: '2026-03-08 11:45' },
-]
+import { getConversations, createConversation, deleteConversation, getMessages } from './services/api'
 
 export default function App() {
-  const [conversations, setConversations] = useState(INITIAL_CONVERSATIONS)
-  const [activeConversationId, setActiveConversationId] = useState('1')
+  const [conversations, setConversations] = useState([])
+  const [activeConversationId, setActiveConversationId] = useState(null)
+  const [currentMessages, setCurrentMessages] = useState([])
+  const [liveChartConfig, setLiveChartConfig] = useState(null)
   const [hoverId, setHoverId] = useState(null)
   const [selectedMessage, setSelectedMessage] = useState(null)
+  const [loadingConv, setLoadingConv] = useState(true)
+  const [convError, setConvError] = useState(null)
+
+  useEffect(() => {
+    setConvError(null)
+    getConversations()
+      .then((list) => {
+        setConversations(list)
+        if (list.length > 0 && !activeConversationId) setActiveConversationId(list[0].id)
+      })
+      .catch((e) => setConvError(e.message || '加载会话列表失败'))
+      .finally(() => setLoadingConv(false))
+  }, [])
+
+  useEffect(() => {
+    if (!activeConversationId) {
+      setCurrentMessages([])
+      return
+    }
+    getMessages(activeConversationId)
+      .then(setCurrentMessages)
+      .catch(() => setCurrentMessages([]))
+    setSelectedMessage(null)
+  }, [activeConversationId])
 
   const handleNewConversation = () => {
-    const id = String(Date.now())
-    setConversations((prev) => [
-      { id, title: '新会话', updatedAt: new Date().toLocaleString('zh-CN') },
-      ...prev,
-    ])
-    setActiveConversationId(id)
+    setConvError(null)
+    createConversation()
+      .then((c) => {
+        setConversations((prev) => [c, ...prev])
+        setActiveConversationId(c.id)
+        setCurrentMessages([])
+      })
+      .catch((e) => setConvError(e.message || '新建会话失败'))
   }
 
   const handleDeleteConversation = (id) => {
-    setConversations((prev) => prev.filter((c) => c.id !== id))
-    if (activeConversationId === id) {
-      setActiveConversationId(conversations[0]?.id || null)
-    }
+    deleteConversation(id)
+      .then(() => {
+        setConversations((prev) => prev.filter((c) => c.id !== id))
+        if (activeConversationId === id) {
+          const rest = conversations.filter((c) => c.id !== id)
+          setActiveConversationId(rest[0]?.id ?? null)
+          setCurrentMessages(rest[0] ? [] : [])
+        }
+      })
+      .catch((e) => setConvError(e.message || '删除失败'))
   }
 
-  const handleUpdateConversationTitle = (convId, title) => {
-    setConversations((prev) =>
-      prev.map((c) =>
-        c.id === convId ? { ...c, title, updatedAt: new Date().toLocaleString('zh-CN') } : c
-      )
-    )
+  const handleStreamStart = (userMsg) => {
+    setCurrentMessages((prev) => [...prev, userMsg])
+  }
+
+  const handleStreamDone = (assistantMsg) => {
+    setLiveChartConfig(null)
+    setCurrentMessages((prev) => {
+      const next = [...prev, assistantMsg]
+      const lastUser = prev.filter((m) => m.role === 'user').pop()
+      if (lastUser) {
+        const conv = conversations.find((c) => c.id === activeConversationId)
+        if (conv?.title === '新会话') {
+          const title = lastUser.content.slice(0, 20) + (lastUser.content.length > 20 ? '...' : '')
+          setConversations((prevConv) =>
+            prevConv.map((c) => (c.id === activeConversationId ? { ...c, title, updated_at: new Date().toISOString() } : c))
+          )
+        }
+      }
+      return next
+    })
   }
 
   return (
@@ -50,21 +92,19 @@ export default function App() {
         onDelete={handleDeleteConversation}
         hoverId={hoverId}
         onHover={setHoverId}
+        loading={loadingConv}
+        error={convError}
       />
       <ChatPanel
         key={activeConversationId}
         activeConversationId={activeConversationId}
+        messages={currentMessages}
         onMessageSelect={setSelectedMessage}
-        onSend={(userMsg, assistantMsg) => {
-          if (assistantMsg && conversations.find((c) => c.id === activeConversationId)?.title === '新会话') {
-            handleUpdateConversationTitle(
-              activeConversationId,
-              userMsg.content.slice(0, 20) + (userMsg.content.length > 20 ? '...' : '')
-            )
-          }
-        }}
+        onStreamStart={handleStreamStart}
+        onStreamDone={handleStreamDone}
+        onChart={setLiveChartConfig}
       />
-      <ChartPanel selectedMessage={selectedMessage} />
+      <ChartPanel selectedMessage={selectedMessage} liveChartConfig={liveChartConfig} />
     </div>
   )
 }
